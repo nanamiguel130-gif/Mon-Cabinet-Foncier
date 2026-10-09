@@ -1,0 +1,11 @@
+{
+  "name": "Mon Cabinet Foncier",
+  "short_name": "Cabinet Foncier",
+  "description": "Gestion administrative et suivi des dossiers fonciers",
+  "lang": "fr-CM",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#163b35",
+  "icons": []
+}
