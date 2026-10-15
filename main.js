@@ -1,15 +1,13 @@
+
 import './styles.css';
 
 const SUPABASE_URL = 'https://bljcjhrzmyckeiushxvk.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_jqK2PCgeLbWdloQQeYcsSA_m1eVtYxJ';
+const ADMIN_PHONE = '+237699171824';
 
-let authMode = 'login';
-let pendingPhone = '';
-let pendingName = '';
-let otpRequested = false;
 let activeAccessToken = null;
 
-function authHeaders(token) {
+function authHeaders(token = null) {
   return {
     apikey: SUPABASE_KEY,
     'Content-Type': 'application/json',
@@ -19,21 +17,26 @@ function authHeaders(token) {
 
 async function readResponse(response) {
   const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
     throw new Error(
-      data.msg || data.message || data.error_description ||
-      data.error || 'Une erreur est survenue.'
+      data.msg ||
+      data.message ||
+      data.error_description ||
+      data.error ||
+      'Une erreur est survenue.'
     );
   }
+
   return data;
 }
 
-function renderAuth(mode = 'login') {
-  authMode = mode;
-  otpRequested = false;
-  pendingPhone = '';
-  pendingName = '';
+function authMessage(message) {
+  const node = document.querySelector('#auth-message');
+  if (node) node.textContent = message;
+}
 
+function renderAuth(mode = 'login') {
   document.querySelector('#app').innerHTML = `
     <main class="auth-shell">
       <section class="auth-card">
@@ -43,162 +46,160 @@ function renderAuth(mode = 'login') {
         </a>
 
         <p class="eyebrow">ESPACE SÉCURISÉ</p>
-        <h1>${mode === 'setup' ? 'Premier compte administrateur' : 'Connexion'}</h1>
+        <h1>${mode === 'setup' ? 'Créer le compte administrateur' : 'Connexion'}</h1>
+
         <p class="auth-subtitle">
           ${mode === 'setup'
-            ? 'Réservé à la responsable du cabinet. Son numéro doit être vérifié.'
-            : 'Connectez-vous avec votre numéro de téléphone.'}
+            ? 'Première activation réservée à la responsable du cabinet.'
+            : 'Connectez-vous avec votre adresse e-mail et votre mot de passe.'}
         </p>
 
         <form id="auth-form">
           ${mode === 'setup' ? `
             <label for="auth-name">Nom complet de maman</label>
-            <input id="auth-name" name="name" autocomplete="name"
-              placeholder="Nom complet" required>
+            <input id="auth-name" name="name"
+              autocomplete="name" placeholder="Nom complet" required>
+
+            <label for="bootstrap-code">Code d’activation administrateur</label>
+            <input id="bootstrap-code" name="bootstrap_code"
+              autocomplete="off" placeholder="Code fourni séparément"
+              required>
           ` : ''}
 
-          <label for="auth-phone">Numéro de téléphone</label>
-          <input id="auth-phone" name="phone" type="tel"
-            inputmode="tel" autocomplete="tel"
-            value="${mode === 'setup' ? '+237699171824' : ''}"
-            placeholder="+237 6XX XX XX XX"
-            ${mode === 'setup' ? 'readonly' : ''}
+          <label for="auth-email">Adresse e-mail</label>
+          <input id="auth-email" name="email" type="email"
+            autocomplete="email" placeholder="Adresse e-mail personnelle"
             required>
 
-          <div id="code-area" ${otpRequested ? '' : 'hidden'}>
-            <label for="auth-code">Code reçu par SMS</label>
-            <input id="auth-code" name="code" inputmode="numeric"
-              autocomplete="one-time-code" placeholder="Code de vérification">
-          </div>
+          <label for="auth-password">Mot de passe</label>
+          <input id="auth-password" name="password" type="password"
+            autocomplete="${mode === 'setup' ? 'new-password' : 'current-password'}"
+            minlength="8" placeholder="Au moins 8 caractères" required>
 
-          <button class="primary auth-submit" id="send-code" type="submit">
-            Envoyer le code SMS
-          </button>
-
-          <button class="secondary auth-secondary" id="verify-code"
-            type="button" hidden>
-            Vérifier le code et continuer
+          <button class="primary auth-submit" type="submit">
+            ${mode === 'setup' ? 'Créer le compte' : 'Se connecter'}
           </button>
         </form>
 
         <button class="text-button auth-back" id="switch-mode" type="button">
           ${mode === 'setup'
             ? '← Retour à la connexion'
-            : 'Première utilisation : créer le compte administrateur'}
+            : 'Première utilisation : activer le compte administrateur'}
         </button>
 
         <p class="security-note">
-          Les comptes du personnel seront accessibles uniquement sur invitation.
-          Ne communiquez jamais votre code de vérification.
+          Le compte administrateur est réservé à la responsable du cabinet.
+          Le personnel devra recevoir une invitation.
         </p>
+
         <div class="auth-message" id="auth-message"
           role="status" aria-live="polite"></div>
       </section>
     </main>
   `;
 
-  document.querySelector('#auth-form').addEventListener('submit', requestAuthCode);
-  document.querySelector('#verify-code').addEventListener('click', verifyAuthCode);
+  document.querySelector('#auth-form')
+    .addEventListener('submit', event => handleAuth(event, mode));
 
   document.querySelector('#switch-mode').addEventListener('click', () => {
     renderAuth(mode === 'setup' ? 'login' : 'setup');
   });
 }
 
-function authMessage(message) {
-  const node = document.querySelector('#auth-message');
-  if (node) node.textContent = message;
-}
-
-async function requestAuthCode(event) {
+async function handleAuth(event, mode) {
   event.preventDefault();
 
-  const phone = document.querySelector('#auth-phone').value.trim();
+  const email = document.querySelector('#auth-email').value.trim();
+  const password = document.querySelector('#auth-password').value;
   const name = document.querySelector('#auth-name')?.value.trim() || '';
+  const bootstrapCode =
+    document.querySelector('#bootstrap-code')?.value.trim() || '';
 
-  if (!phone) {
-    authMessage('Saisis ton numéro de téléphone.');
+  if (mode === 'setup' && name.length < 2) {
+    authMessage('Saisis le nom complet de la responsable.');
     return;
   }
 
-  if (authMode === 'setup' && name.length < 2) {
-    authMessage('Saisis le nom complet de l’administratrice.');
+  if (mode === 'setup' && !bootstrapCode) {
+    authMessage('Le code d’activation est obligatoire.');
     return;
   }
 
-  pendingPhone = phone;
-  pendingName = name;
+  authMessage('Connexion en cours…');
 
   try {
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        phone: pendingPhone,
-        create_user: authMode === 'setup'
-      })
-    });
+    let session;
 
-    await readResponse(response);
-    otpRequested = true;
+    if (mode === 'setup') {
+      const signupResponse = await fetch(
+        `${SUPABASE_URL}/auth/v1/signup`,
+        {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            email,
+            password,
+            data: {
+              display_name: name,
+              phone: ADMIN_PHONE
+            }
+          })
+        }
+      );
 
-    document.querySelector('#code-area').hidden = false;
-    document.querySelector('#verify-code').hidden = false;
-    document.querySelector('#send-code').textContent = 'Renvoyer le code SMS';
+      session = await readResponse(signupResponse);
 
-    authMessage('Code demandé. Vérifie les SMS reçus avant de continuer.');
-  } catch (error) {
-    authMessage(
-      `Envoi impossible : ${error.message}. Vérifie la configuration SMS de Supabase.`
-    );
-  }
-}
+      if (!session.access_token) {
+        authMessage(
+          'Compte créé ou demande enregistrée. Vérifie la boîte e-mail, ' +
+          'confirme l’adresse, puis reviens à la connexion. ' +
+          'L’activation administrateur reste à terminer.'
+        );
+        return;
+      }
 
-async function verifyAuthCode() {
-  const code = document.querySelector('#auth-code')?.value.trim();
+      activeAccessToken = session.access_token;
 
-  if (!otpRequested || !code) {
-    authMessage('Demande d’abord un code, puis saisis-le.');
-    return;
-  }
-
-  try {
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        phone: pendingPhone,
-        token: code,
-        type: 'sms'
-      })
-    });
-
-    const session = await readResponse(response);
-
-    if (!session.access_token || !session.user?.id) {
-      throw new Error('Supabase n’a pas retourné de session valide.');
-    }
-
-    activeAccessToken = session.access_token;
-
-    if (authMode === 'setup') {
-      const bootstrapResponse = await fetch(
+      const activationResponse = await fetch(
         `${SUPABASE_URL}/functions/v1/bootstrap-admin`,
         {
           method: 'POST',
           headers: authHeaders(activeAccessToken),
-          body: JSON.stringify({ display_name: pendingName })
+          body: JSON.stringify({
+            display_name: name,
+            bootstrap_code: bootstrapCode
+          })
         }
       );
 
-      await readResponse(bootstrapResponse);
+      await readResponse(activationResponse);
 
       openAdminDashboard({
-        display_name: pendingName,
-        role: 'administratrice'
+        display_name: name,
+        role: 'Administratrice',
+        is_admin: true,
+        status: 'active'
       });
+
       return;
     }
+
+    const loginResponse = await fetch(
+      `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ email, password })
+      }
+    );
+
+    session = await readResponse(loginResponse);
+
+    if (!session.access_token || !session.user?.id) {
+      throw new Error('Session de connexion invalide.');
+    }
+
+    activeAccessToken = session.access_token;
 
     const profileUrl = new URL(
       `${SUPABASE_URL}/rest/v1/staff_profiles`
@@ -218,27 +219,26 @@ async function verifyAuthCode() {
     const profile = profiles[0];
 
     if (!profile || profile.status !== 'active') {
-      activeAccessToken = null;
       throw new Error(
-        'Aucun profil actif associé à ce compte. Demande une invitation à la responsable.'
+        'Aucun profil actif trouvé. L’accès doit être autorisé par la responsable.'
       );
     }
 
     if (!profile.is_admin) {
-      activeAccessToken = null;
       throw new Error(
-        'L’espace du personnel n’est pas encore activé. L’accès administrateur est refusé.'
+        'Ce compte ne possède pas les droits administrateur.'
       );
     }
 
     openAdminDashboard(profile);
+
   } catch (error) {
-    authMessage(`Connexion non terminée : ${error.message}`);
+    activeAccessToken = null;
+    authMessage(`Opération non terminée : ${error.message}`);
   }
 }
 
 function openAdminDashboard(profile) {
-  // Affiche le tableau de bord existant uniquement après authentification.
   render();
 
   const name = document.querySelector('.sidebar-bottom b');
@@ -247,31 +247,35 @@ function openAdminDashboard(profile) {
 
   if (name) name.textContent = profile.display_name || 'Administratrice';
   if (role) role.textContent = profile.role || 'Administratrice';
-  if (secureLabel) secureLabel.textContent = '● Session sécurisée';
+  if (secureLabel) secureLabel.textContent = '● Session authentifiée';
 
   const actions = document.querySelector('.top-actions');
-  if (actions) {
+
+  if (actions && !document.querySelector('#logout-button')) {
     actions.insertAdjacentHTML(
       'beforeend',
       '<button class="auth-logout" id="logout-button" type="button">Déconnexion</button>'
     );
   }
 
-  document.querySelector('#logout-button')?.addEventListener('click', async () => {
-    try {
-      if (activeAccessToken) {
-        await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
-          method: 'POST',
-          headers: authHeaders(activeAccessToken)
-        });
+  document.querySelector('#logout-button')?.addEventListener(
+    'click',
+    async () => {
+      try {
+        if (activeAccessToken) {
+          await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+            method: 'POST',
+            headers: authHeaders(activeAccessToken)
+          });
+        }
+      } finally {
+        activeAccessToken = null;
+        renderAuth('login');
       }
-    } finally {
-      activeAccessToken = null;
-      renderAuth('login');
     }
-  });
-            }
-      
+  );
+}
+
 
 const stats = [
   { label: 'Dossiers ouverts', value: '—', note: 'Connecter la base de données pour afficher les chiffres' },
