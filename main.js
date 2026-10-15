@@ -130,7 +130,26 @@ async function handleAuth(event, mode) {
   try {
     let session;
 
-    if (mode === 'setup') {
+if (mode === 'setup') {
+  // 1. Essayer d'abord de connecter un compte déjà créé.
+  try {
+    const loginResponse = await fetch(
+      `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ email, password })
+      }
+    );
+
+    session = await readResponse(loginResponse);
+  } catch {
+    session = null;
+  }
+
+  // 2. Si aucun compte ne peut être connecté, tenter l'inscription.
+  if (!session?.access_token) {
+    try {
       const signupResponse = await fetch(
         `${SUPABASE_URL}/auth/v1/signup`,
         {
@@ -148,41 +167,57 @@ async function handleAuth(event, mode) {
       );
 
       session = await readResponse(signupResponse);
-
-      if (!session.access_token) {
-        authMessage(
-          'Compte créé ou demande enregistrée. Vérifie la boîte e-mail, ' +
-          'confirme l’adresse, puis reviens à la connexion. ' +
-          'L’activation administrateur reste à terminer.'
-        );
-        return;
-      }
-
-      activeAccessToken = session.access_token;
-
-      const activationResponse = await fetch(
-        `${SUPABASE_URL}/functions/v1/bootstrap-admin`,
-        {
-          method: 'POST',
-          headers: authHeaders(activeAccessToken),
-          body: JSON.stringify({
-            display_name: name,
-            bootstrap_code: bootstrapCode
-          })
-        }
+    } catch (error) {
+      throw new Error(
+        "Connexion ou inscription impossible. Si tu avais déjà " +
+        "commencé l'inscription, confirme d'abord ton adresse e-mail, " +
+        "puis réessaie avec le même e-mail et le même mot de passe. " +
+        "Vérifie aussi tes identifiants. Détail : " + error.message
       );
+    }
 
-      await readResponse(activationResponse);
-
-      openAdminDashboard({
-        display_name: name,
-        role: 'Administratrice',
-        is_admin: true,
-        status: 'active'
-      });
-
+    // 3. Si la confirmation par e-mail est nécessaire, attendre.
+    if (!session?.access_token) {
+      authMessage(
+        "Vérifie ta boîte e-mail et confirme ton adresse. " +
+        "Reviens ensuite sur cette page et saisis le même e-mail, " +
+        "le même mot de passe, ton nom complet et le code d'activation."
+      );
       return;
     }
+  }
+
+  if (!session.user?.id) {
+    throw new Error("Le compte n'a pas pu être vérifié.");
+  }
+
+  // 4. Envoyer le code au serveur sécurisé pour activer l'administratrice.
+  activeAccessToken = session.access_token;
+
+  const activationResponse = await fetch(
+    `${SUPABASE_URL}/functions/v1/bootstrap-admin`,
+    {
+      method: 'POST',
+      headers: authHeaders(activeAccessToken),
+      body: JSON.stringify({
+        display_name: name,
+        bootstrap_code: bootstrapCode
+      })
+    }
+  );
+
+  await readResponse(activationResponse);
+
+  // 5. Afficher l'espace administrateur après confirmation du serveur.
+  openAdminDashboard({
+    display_name: name,
+    role: 'Administratrice',
+    is_admin: true,
+    status: 'active'
+  });
+
+  return;
+}
 
     const loginResponse = await fetch(
       `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
