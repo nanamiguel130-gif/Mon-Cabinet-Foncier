@@ -353,4 +353,4 @@ function showToast(message) {
   clearTimeout(window.__toastTimer);
   window.__toastTimer = setTimeout(() => toast.classList.remove('visible'), 3200);
 }
-render();
+renderAuth('login');
