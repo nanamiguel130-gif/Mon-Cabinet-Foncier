@@ -234,12 +234,17 @@ body: JSON.stringify(
   return;
 }
 
+    
     const loginResponse = await fetch(
       `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
       {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify(
+          /^\+[1-9]\d{7,14}$/.test(email)
+            ? { phone: email, password }
+            : { email, password }
+        )
       }
     );
 
