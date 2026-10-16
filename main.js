@@ -1,5 +1,9 @@
 
 import './styles.css';
+import {
+  renderStaffModule,
+  renderInviteAcceptance
+} from './staff.js';
 
 const SUPABASE_URL = 'https://bljcjhrzmyckeiushxvk.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_jqK2PCgeLbWdloQQeYcsSA_m1eVtYxJ';
