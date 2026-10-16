@@ -274,13 +274,7 @@ body: JSON.stringify(
       );
     }
 
-    if (!profile.is_admin) {
-      throw new Error(
-        'Ce compte ne possède pas les droits administrateur.'
-      );
-    }
-
-    openAdminDashboard(profile);
+openAdminDashboard(profile);
 
   } catch (error) {
     activeAccessToken = null;
@@ -289,8 +283,8 @@ body: JSON.stringify(
 }
 
 function openAdminDashboard(profile) {
+  activeProfile = profile;
   render();
-
   const name = document.querySelector('.sidebar-bottom b');
   const role = document.querySelector('.sidebar-bottom small');
   const secureLabel = document.querySelector('.secure-label');
