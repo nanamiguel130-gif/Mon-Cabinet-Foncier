@@ -71,11 +71,19 @@ function renderAuth(mode = 'login') {
               required>
           ` : ''}
 
-          <label for="auth-email">Adresse e-mail</label>
-          <input id="auth-email" name="email" type="email"
-            autocomplete="email" placeholder="Adresse e-mail personnelle"
-            required>
+<label for="auth-email">
+  ${mode === 'setup'
+    ? 'Adresse e-mail'
+    : 'Téléphone ou adresse e-mail'}
+</label>
 
+<input id="auth-email" name="email"
+  type="${mode === 'setup' ? 'email' : 'text'}"
+  autocomplete="${mode === 'setup' ? 'email' : 'username'}"
+  placeholder="${mode === 'setup'
+    ? 'Adresse e-mail personnelle'
+    : '+2376XXXXXXXX ou adresse e-mail'}"
+  required>
           <label for="auth-password">Mot de passe</label>
           <input id="auth-password" name="password" type="password"
             autocomplete="${mode === 'setup' ? 'new-password' : 'current-password'}"
