@@ -387,11 +387,70 @@ function render() {
     </div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
   `;
-  document.querySelectorAll('[data-page]').forEach(btn => btn.addEventListener('click', () => {
-    const page = navItems.find(item => item[0] === btn.dataset.page);
-    showToast(`${page ? page[1] : 'Section'} : module prévu dans une prochaine étape.`);
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === btn.dataset.page));
-  }));
+document.querySelectorAll('[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.page;
+    const page = navItems.find(item => item[0] === id);
+    const isAdmin = activeProfile?.is_admin === true;
+
+    if (id === 'dashboard') {
+      openAdminDashboard(activeProfile);
+      return;
+    }
+
+    if (id === 'team') {
+      if (!isAdmin) {
+        showToast('Accès réservé à l’administratrice.');
+        return;
+      }
+
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.page === id);
+      });
+
+      const crumb = document.querySelector('.crumb');
+      if (crumb) {
+        crumb.innerHTML =
+          'Cabinet <span>/</span> Personnel & accès';
+      }
+
+      renderStaffModule({
+        container: document.querySelector('.content'),
+        accessToken: activeAccessToken,
+        onMessage: showToast
+      });
+
+      return;
+    }
+
+    if (id === 'settings' && !isAdmin) {
+      showToast('Accès réservé à l’administratrice.');
+      return;
+    }
+
+    if (
+      activeProfile &&
+      !isAdmin &&
+      id !== 'dashboard' &&
+      activeProfile.permissions?.[id] !== true
+    ) {
+      showToast('Tu ne disposes pas des autorisations nécessaires.');
+      return;
+    }
+
+    if (document.querySelector('#staff-page')) {
+      openAdminDashboard(activeProfile);
+    }
+
+    showToast(
+      `${page ? page[1] : 'Section'} : module prévu dans une prochaine étape.`
+    );
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.page === id);
+    });
+  });
+});
   ['new-case','empty-new-case'].forEach(id => document.getElementById(id)?.addEventListener('click', () => showToast('Le formulaire sera activé après validation du modèle de données et des droits d’accès.')));
   document.getElementById('menu-toggle')?.addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('open'));
 }
