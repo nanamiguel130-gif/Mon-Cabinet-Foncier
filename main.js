@@ -151,9 +151,11 @@ if (mode === 'setup') {
       {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ email, password })
-      }
-    );
+body: JSON.stringify(
+  /^\+[1-9]\d{7,14}$/.test(email)
+    ? { phone: email, password }
+    : { email, password }
+);
 
     session = await readResponse(loginResponse);
   } catch {
