@@ -461,4 +461,11 @@ function showToast(message) {
   clearTimeout(window.__toastTimer);
   window.__toastTimer = setTimeout(() => toast.classList.remove('visible'), 3200);
 }
-renderAuth('login');
+const invitationMatch =
+  window.location.hash.match(/^#invite=([a-f0-9]{64})$/);
+
+if (invitationMatch) {
+  renderInviteAcceptance(invitationMatch[1]);
+} else {
+  renderAuth('login');
+}
