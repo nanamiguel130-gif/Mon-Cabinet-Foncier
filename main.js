@@ -10,6 +10,7 @@ const SUPABASE_KEY = 'sb_publishable_jqK2PCgeLbWdloQQeYcsSA_m1eVtYxJ';
 const ADMIN_PHONE = '+237699171824';
 
 let activeAccessToken = null;
+let activeProfile = null;
 
 function authHeaders(token = null) {
   return {
