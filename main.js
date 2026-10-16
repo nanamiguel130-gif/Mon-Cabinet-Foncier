@@ -313,8 +313,9 @@ function openAdminDashboard(profile) {
           });
         }
       } finally {
-        activeAccessToken = null;
-        renderAuth('login');
+activeAccessToken = null;
+activeProfile = null;
+renderAuth('login');
       }
     }
   );
